@@ -74,6 +74,35 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument("--input-list", type=_path, required=True)
     plan.add_argument("--sdk-root", type=_path, required=True)
     plan.add_argument("--out", type=_path, default=Path("artifacts/qnn"))
+    dataset = sub.add_parser(
+        "prepare-imagenette",
+        help="Opt-in download of real 10-class Imagenette holdout dataset",
+    )
+    dataset.add_argument("--root", type=_path, default=Path("data/imagenette"))
+    dataset.add_argument("--calibration-per-class", type=int, default=24)
+    dataset.add_argument("--validation-per-class", type=int, default=10)
+    dataset.add_argument("--test-per-class", type=int, default=10)
+    dataset.add_argument("--seed", type=int, default=2026)
+
+    ablate = sub.add_parser(
+        "ablate", help="Run complete PTQ matrix; select by validation, test once",
+    )
+    ablate.add_argument("--data-root", type=_path, required=True)
+    ablate.add_argument("--calibration", type=_path, required=True)
+    ablate.add_argument("--validation", type=_path, required=True)
+    ablate.add_argument("--test", type=_path, required=True)
+    ablate.add_argument("--out", type=_path, default=Path("runs/exp01"))
+    ablate.add_argument("--sizes", default="32,64,128")
+    ablate.add_argument("--methods", default="minmax,entropy,percentile")
+    ablate.add_argument("--seed", type=int, default=2026)
+    ablate.add_argument("--warmup", type=int, default=2)
+    ablate.add_argument("--repeats", type=int, default=20)
+    ablate.add_argument("--fail-fast", action="store_true")
+
+    visualize = sub.add_parser("visualize", help="Recreate plots from real JSON evidence")
+    visualize.add_argument("--summary", type=_path, required=True)
+    visualize.add_argument("--out", type=_path, required=True)
+
     return parser
 
 
@@ -86,6 +115,25 @@ def main(argv: list[str] | None = None) -> int:
         test = load_manifest(args.test, args.data_root)
         validate_disjoint(calibration, test)
         result = {"status": "disjoint", "calibration": len(calibration), "test": len(test)}
+    elif args.command == "prepare-imagenette":
+        from .imagenette import prepare_imagenette
+        result = prepare_imagenette(
+            args.root, calibration_per_class=args.calibration_per_class,
+            validation_per_class=args.validation_per_class,
+            test_per_class=args.test_per_class, seed=args.seed,
+        )
+    elif args.command == "ablate":
+        from .ablations import run_ablation_matrix
+        result = run_ablation_matrix(
+            args.data_root, args.calibration, args.validation, args.test, args.out,
+            calibration_sizes=tuple(int(x) for x in args.sizes.split(",")),
+            methods=tuple(x.strip() for x in args.methods.split(",")),
+            seed=args.seed, warmup=args.warmup, repeats=args.repeats,
+            continue_on_error=not args.fail_fast,
+        )
+    elif args.command == "visualize":
+        from .visualize import from_summary_file
+        result = from_summary_file(args.summary, args.out)
     elif args.command == "export":
         from .pipeline import export_mobilenet
         result = export_mobilenet(args.output, pretrained=args.pretrained, seed=args.seed)
