@@ -1,0 +1,53 @@
+experiment:
+  id: exp01-cnn-quantization
+  owner: automotive-npu-deployment-factory
+  intent: educational_reproducible_engineering
+  model: torchvision_mobilenet_v2
+  seed: 2026
+  input_shape: [1, 3, 224, 224]
+  opset: 17
+  stages:
+    S00: environment_and_dataset
+    S01: torch_to_onnx_baseline
+    S02: quantization_and_accuracy
+    S03: qnn_converter_and_operator_compatibility
+    S04: remote_npu_compile_and_profile
+    S05: local_npu_performance_optimization
+    S06: android_linux_inference_service
+    S07: extended_model_family_research
+    S08: reproducibility_ci_and_reporting
+  ablations:
+    calibration_sizes: [32, 128, 512]
+    methods: [minmax, entropy, percentile]
+    per_channel: [false, true]
+  data_policy:
+    calibration_and_test_disjoint: true
+    require_real_labels_for_accuracy: true
+    exclude_licensed_datasets_from_git: true
+  qa_policy:
+    synthetic_data_only_smoke: true
+    real_hardware_measured_only_with_provenance: true
+    do_not_report_simulated_htp_metrics_as_hardware: true
+  gates:
+    S01:
+      onnx_checker: pass
+      numerical_allclose_atol: 0.0001
+      numerical_allclose_rtol: 0.001
+    S02:
+      real_dataset_required_for_accuracy_claim: true
+      paired_float_quant_evaluation: true
+    S03:
+      qnn_sdk_version_recorded: true
+      operator_compatibility_report_required: true
+    S04:
+      exact_device_and_proxy_status_recorded: true
+      htp_execution_evidence_required: true
+    S05:
+      repeated_timings_and_thermal_context_required: true
+    S06:
+      run_device_service_contract_tests: true
+    S07:
+      model_family_specific_quality_metrics_required: true
+    S08:
+      sha256_for_models_and_reports: true
+      mandatory_ci_pass: true
