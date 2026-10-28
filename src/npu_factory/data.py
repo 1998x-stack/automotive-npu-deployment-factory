@@ -64,7 +64,7 @@ def preprocess(path: Path) -> np.ndarray:
         resized = (int(w * target / min(w, h)), int(h * target / min(w, h)))
         image = image.resize(resized, resample=Image.Resampling.BILINEAR)
         w, h = image.size
-        x, y = (w - 224) // 2, (h - 224) // 2
+        x, y = round((w - 224) / 2), round((h - 224) / 2)
         image = image.crop((x, y, x + 224, y + 224))
         array = np.asarray(image, dtype=np.float32) / np.float32(255)
     array = (array - np.array([0.485, 0.456, 0.406], dtype=np.float32)) / np.array(
