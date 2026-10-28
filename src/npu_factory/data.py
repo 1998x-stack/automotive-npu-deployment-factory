@@ -60,8 +60,8 @@ def preprocess(path: Path) -> np.ndarray:
     with Image.open(path) as image:
         image = image.convert("RGB")
         w, h = image.size
-        target = 256
-        resized = (round(w * target / min(w, h)), round(h * target / min(w, h)))
+        target = 232
+        resized = (int(w * target / min(w, h)), int(h * target / min(w, h)))
         image = image.resize(resized, resample=Image.Resampling.BILINEAR)
         w, h = image.size
         x, y = (w - 224) // 2, (h - 224) // 2
