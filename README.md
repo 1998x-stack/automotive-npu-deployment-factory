@@ -9,6 +9,8 @@ An engineering-focused, reproducible learning laboratory for the Qualcomm SA8255
 ## Start here
 
 - [Full stage plan](docs/stages/exp01-roadmap.md)
+- [Full 18-way PTQ ablation protocol and visualization](docs/stages/exp01-ablation.md)
+- [Full Imagenette execution workflow](.github/workflows/full-ablation.yml)
 - [Architecture and trust boundaries](docs/architecture.md)
 - [Hardware and QAIRT preparation](docs/hardware-setup.md)
 - [Experiment evidence and acceptance template](docs/acceptance.md)
@@ -128,3 +130,7 @@ It fails if the QNN provider is unavailable; CPU fallback is explicitly disabled
 ## Provenance policy
 
 Record input model SHA256, quantized model SHA256, calibration and test manifest hashes, Python and tool versions, backend, target device, BSP and QAIRT releases, warmup, sample count, output report and raw logs. Keep images, model blobs, native SDK libraries, OEM configuration and access tokens outside Git.
+
+## Experiment 01 complete ablation
+
+The extended `npu-factory prepare-imagenette`, `npu-factory ablate` and `npu-factory visualize` commands generate an 18-condition calibration matrix (3 sizes × 3 methods × 2 weight quantization modes), with separate validation selection and final holdout. Refer to [the ablation protocol](docs/stages/exp01-ablation.md) for exact commands, data provenance, evaluation limitations and report formats. CPU numbers are **not** SA8255P/SA8295P NPU measurements.
