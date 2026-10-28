@@ -103,6 +103,25 @@ def build_parser() -> argparse.ArgumentParser:
     visualize.add_argument("--summary", type=_path, required=True)
     visualize.add_argument("--out", type=_path, required=True)
 
+    next_stage = sub.add_parser(
+        "stage-02", help="FP16, matched head-only QAT and bootstrap study (real data)"
+    )
+    next_stage.add_argument("--data-root", type=_path, required=True)
+    next_stage.add_argument("--calibration", type=_path, required=True)
+    next_stage.add_argument("--validation", type=_path, required=True)
+    next_stage.add_argument("--test", type=_path, required=True)
+    next_stage.add_argument("--out", type=_path, default=Path("runs/experiment-02"))
+    next_stage.add_argument("--seeds", default="7,19,31")
+    next_stage.add_argument("--qat-images", type=int, default=80)
+    next_stage.add_argument("--ptq-images", type=int, default=64)
+    next_stage.add_argument("--epochs", type=int, default=3)
+    next_stage.add_argument("--learning-rate", type=float, default=0.001)
+
+    preflight = sub.add_parser("htp-preflight", help="Document HTP prerequisites, no execution")
+    preflight.add_argument("--soc", choices=["sa8255p", "sa8295p"], required=True)
+    preflight.add_argument("--sdk-root", type=_path)
+    preflight.add_argument("--out", type=_path, default=Path("runs/htp-preflight.json"))
+
     return parser
 
 
@@ -134,6 +153,21 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "visualize":
         from .visualize import from_summary_file
         result = from_summary_file(args.summary, args.out)
+    elif args.command == "stage-02":
+        from .next_stage import run_next_stage
+
+        result = run_next_stage(
+            args.data_root, args.calibration, args.validation, args.test, args.out,
+            training_seeds=tuple(int(s) for s in args.seeds.split(",")),
+            qat_images=args.qat_images, ptq_images=args.ptq_images,
+            epochs=args.epochs, lr=args.learning_rate,
+        )
+    elif args.command == "htp-preflight":
+        from .hardware import hardware_preflight
+
+        result = hardware_preflight(
+            args.out, soc=args.soc, sdk_root=args.sdk_root,
+        )
     elif args.command == "export":
         from .pipeline import export_mobilenet
         result = export_mobilenet(args.output, pretrained=args.pretrained, seed=args.seed)
