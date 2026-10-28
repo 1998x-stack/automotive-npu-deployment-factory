@@ -12,17 +12,17 @@ from .utils import write_json
 
 
 def generate_report(summary: dict, output_dir: Path) -> dict:
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     rows = summary.get("experiments", [])
     completed = [r for r in rows if r.get("status") == "completed"]
     if not completed:
         raise ValueError("No completed experiments: refusing empty charts")
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
 
     keys = [
         "id", "calibration_size", "method", "per_channel", "status",
