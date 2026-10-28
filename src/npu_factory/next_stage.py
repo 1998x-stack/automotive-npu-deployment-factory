@@ -1,7 +1,6 @@
 """Experiment 02: FP16 portability, matched classifier-head QAT, paired statistics."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import numpy as np
@@ -170,7 +169,6 @@ def run_next_stage(
     # For each seed, train only on calibration images; test features are not read
     # until the best QAT seed is selected on validation.
     features_val, labels_val = extract_features(pretrained.features, validation, data_root)
-    original_val = head(features_val).argmax(1).tolist()
     results, candidates = [], {}
     for seed in training_seeds:
         manifest = stratified_calibration_subset(

@@ -1,7 +1,7 @@
 import pytest
 
 torch = pytest.importorskip("torch")
-from npu_factory.qat import QuantAwareHead, predict_head, train_head
+from npu_factory.qat import QuantAwareHead, predict_head, train_head  # noqa: E402
 
 
 def test_qat_head_trains_with_fake_quant_and_updates_weights():
