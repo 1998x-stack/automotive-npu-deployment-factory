@@ -83,7 +83,11 @@ def quantize_onnx(
 ) -> dict:
     """Static QDQ PTQ. Disjoint split mandatory; no claim of hardware compatibility."""
     from onnxruntime.quantization import (
-        CalibrationDataReader, CalibrationMethod, QuantFormat, QuantType, quantize_static
+        CalibrationDataReader,
+        CalibrationMethod,
+        QuantFormat,
+        QuantType,
+        quantize_static,
     )
 
     calibration_images = load_manifest(calibration, data_root)
