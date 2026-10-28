@@ -134,3 +134,13 @@ Record input model SHA256, quantized model SHA256, calibration and test manifest
 ## Experiment 01 complete ablation
 
 The extended `npu-factory prepare-imagenette`, `npu-factory ablate` and `npu-factory visualize` commands generate an 18-condition calibration matrix (3 sizes × 3 methods × 2 weight quantization modes), with separate validation selection and final holdout. Refer to [the ablation protocol](docs/stages/exp01-ablation.md) for exact commands, data provenance, evaluation limitations and report formats. CPU numbers are **not** SA8255P/SA8295P NPU measurements.
+
+## Experiment 02 — FP16, head-only QAT and statistical evidence
+
+Experimental follow-up on the independent [Experiment 02 feature branch](https://github.com/1998x-stack/automotive-npu-deployment-factory/tree/feat/experiment-02-fp16-qat-statistical-validation). The established Experiment 01 branch and main stay unchanged.
+
+- [Experiment 02 design and local reproduction](docs/stages/experiment-02-fp16-qat-statistics.md)
+- [Measured 350-image results, three QAT seeds and paired confidence intervals](docs/results/experiment-02-2026-10-28.md)
+- [Successful real-data GitHub Actions run](https://github.com/1998x-stack/automotive-npu-deployment-factory/actions/runs/40668420358)
+
+Measured: pretrained FP32/FP16 63.43% Top-1, fixed-recipe INT8 PTQ 62.29%, matched fine-tuned FP32 head/head-only QAT both 67.43% on the **350-image Imagenette subset**. These are CPU correctness studies, not SA8255P/SA8295P measurements, and the head-only QAT is not a full-model INT8 QNN build.
