@@ -1,0 +1,33 @@
+name: experiment-01-ci
+
+on:
+  push:
+    branches:
+      - main
+      - feat/experiment-01-cnn-quantization-factory
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Ruff
+        run: ruff check .
+      - name: Unit tests
+        run: pytest -q
+      - name: CLI smoke
+        run: |
+          python -m npu_factory smoke-data --root /tmp/exp01-fixtures
+          python -m npu_factory check-splits \
+            --calibration /tmp/exp01-fixtures/calibration.jsonl \
+            --test /tmp/exp01-fixtures/test.jsonl \
+            --data-root /tmp/exp01-fixtures

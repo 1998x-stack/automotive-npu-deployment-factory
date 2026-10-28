@@ -1,0 +1,103 @@
+name: exp01-full-imagenette-ptq-ablation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/experiment-01-cnn-quantization-factory
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/full-ablation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  real-data-ptq-matrix:
+    name: Real Imagenette 18-way PTQ ablation
+    runs-on: ubuntu-22.04
+    timeout-minutes: 75
+    env:
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+      OPENBLAS_NUM_THREADS: "2"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only PyTorch and torchvision
+        run: python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - name: Install ONNX, testing and visualization requirements
+        run: |
+          python -m pip install -e ".[dev,model,viz]"
+          python -m pip freeze > python-freeze.txt
+      - name: Test preprocessing, data contracts, and visualization
+        run: |
+          ruff check .
+          pytest -q
+      - name: Prepare real labeled Imagenette data
+        run: |
+          npu-factory prepare-imagenette \
+            --root data/imagenette --calibration-per-class 24 \
+            --validation-per-class 10 --test-per-class 10 \
+            > /tmp/dataset-preparation-log.txt
+      - name: Run all 18 PTQ configurations and sealed test
+        run: |
+          npu-factory ablate \
+            --data-root data/imagenette \
+            --calibration data/imagenette/calibration.jsonl \
+            --validation data/imagenette/validation.jsonl \
+            --test data/imagenette/test.jsonl \
+            --out runs/exp01-imagenette \
+            --sizes 32,64,128 --methods minmax,entropy,percentile \
+            --warmup 2 --repeats 20 \
+            > /tmp/exp01-completion-log.json
+      - name: Enforce matrix completeness
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("runs/exp01-imagenette/summary.json")
+          result = json.loads(p.read_text())
+          rows = result["experiments"]
+          completed = sum(x["status"] == "completed" for x in rows)
+          print(f"Completed {completed}/{len(rows)} matrix experiments")
+          if len(rows) != 18 or completed != 18 or result["status"] != "complete":
+              raise SystemExit("PTQ matrix incomplete; review per-variant diagnostics")
+          if result["final_test"] is None:
+              raise SystemExit("Missing final untouched holdout evaluation")
+          PY
+      - name: Publish concise run summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path("runs/exp01-imagenette/summary.json")
+          if path.exists():
+              d = json.loads(path.read_text())
+              runs = d.get("experiments", [])
+              done = sum(x.get("status") == "completed" for x in runs)
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+                  f.write(f"## Experiment 01: {done}/{len(runs)} completed\n\n")
+                  f.write(f"Status: {d['status']}; selected: {d.get('selected_id')}\n\n")
+                  f.write("Host CPU measurements, **not SA8255P/SA8295P NPU**.\n")
+          PY
+      - name: Upload reproducible reports and visualizations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp01-imagenette-ablation-reports
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            runs/exp01-imagenette/summary.json
+            runs/exp01-imagenette/*benchmark.json
+            runs/exp01-imagenette/metrics/*.json
+            runs/exp01-imagenette/report/*
+            data/imagenette/dataset_provenance.json
+            python-freeze.txt
