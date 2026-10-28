@@ -1,0 +1,106 @@
+name: experiment-02-real-fp16-qat-statistical-study
+
+on:
+  push:
+    branches:
+      - feat/experiment-02-fp16-qat-statistical-validation
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/experiment-02.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-image-validation:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 65
+    env:
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+      OPENBLAS_NUM_THREADS: "2"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU torch and torchvision
+        run: python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - name: Install project and save resolved dependency versions
+        run: |
+          python -m pip install -e ".[dev,model,viz,fp16]"
+          python -m pip freeze > experiment02-python-freeze.txt
+      - name: Unit tests and lint
+        run: |
+          ruff check .
+          pytest -q
+      - name: Download independent real Imagenette image splits
+        run: |
+          npu-factory prepare-imagenette \
+            --root data/imagenette \
+            --calibration-per-class 24 \
+            --validation-per-class 10 \
+            --test-per-class 35 > /tmp/imagenette-dataset-log.json
+      - name: Full FP16, QAT and statistics experiment
+        run: |
+          npu-factory stage-02 \
+            --data-root data/imagenette \
+            --calibration data/imagenette/calibration.jsonl \
+            --validation data/imagenette/validation.jsonl \
+            --test data/imagenette/test.jsonl \
+            --out runs/experiment-02 \
+            --seeds 7,19,31 \
+            --qat-images 80 --ptq-images 64 \
+            --epochs 3 --learning-rate 0.001 \
+            > /tmp/experiment02-results-log.json
+      - name: Verify scientific completion
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("runs/experiment-02/summary.json").read_text())
+          assert data["status"] == "complete"
+          assert len(data["qat_seeds"]) == 3
+          assert data["data"]["test_count"] == 350
+          assert len(data["paired_comparisons"]) == 3
+          for name,comparison in data["paired_comparisons"].items():
+              assert comparison["count"] == 350, name
+              assert comparison["paired_bootstrap_low_pp"] <= comparison["candidate_minus_reference_pp"] <= comparison["paired_bootstrap_high_pp"]
+          assert Path("runs/experiment-02/report.html").exists()
+          print("All actual experiment-02 gates passed.")
+          PY
+      - name: Publish summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path("runs/experiment-02/summary.json")
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+              f.write("## Experiment 02 — FP16, head-only QAT and paired robustness\n\n")
+              if p.exists():
+                  data=json.loads(p.read_text())
+                  f.write("Status: "+data["status"]+"\n\n")
+                  f.write("Final evaluation: "+str(data["data"]["test_count"])+" real test images\n\n")
+                  for key,val in data["final_test_accuracies"].items():
+                      f.write(f"- {key}: {val*100:.2f}%\n")
+              else:
+                  f.write("No summary was produced; inspect logs.\n")
+          PY
+      - name: Upload reproducible report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: experiment02-fp16-qat-statistics
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            runs/experiment-02/summary.json
+            runs/experiment-02/report.html
+            runs/experiment-02/figures/*.png
+            data/imagenette/dataset_provenance.json
+            experiment02-python-freeze.txt

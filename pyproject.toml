@@ -13,6 +13,7 @@ dependencies = ["numpy>=1.24,<3", "Pillow>=10,<13"]
 model = ["torch>=2.3", "torchvision>=0.18", "onnx>=1.16", "onnxruntime>=1.18"]
 dev = ["pytest>=8", "ruff>=0.6"]
 viz = ["matplotlib>=3.8"]
+fp16 = ["onnxconverter-common>=1.16"]
 all = ["torch>=2.3", "torchvision>=0.18", "onnx>=1.16", "onnxruntime>=1.18", "pytest>=8", "ruff>=0.6"]
 
 [project.scripts]
